@@ -64,7 +64,7 @@ agent = create_agent(
     state_schema=CustomState,
     context_schema=CustomContext,
     system_prompt=(
-        # 如果不指定每一步要解释，那么,中间过程的AIMessage.content会是空。
+        # langchain agent的AImessage被设计为结构化输出，所以不会显示思考过程。如果不指定“每一步要解释”，那么,中间过程的AIMessage.content会是空。
         "You have access to tools.在调用任何工具前，你必须先解释并输出你要做什么"
     ),
 )
