@@ -63,14 +63,17 @@ agent = create_agent(
     tools=[update_user_name, tell_user_name],
     state_schema=CustomState,
     context_schema=CustomContext,
-    system_prompt=("You have access to tools."),
+    system_prompt=(
+        # 如果不指定每一步要解释，那么,中间过程的AIMessage.content会是空。
+        "You have access to tools.在调用任何工具前，你必须先解释并输出你要做什么"
+    ),
 )
 
 output = agent.invoke(
     {"messages": [{"role": "user", "content": "please call my name and greet me"}]},
     context=CustomContext(user_id="user_1"),
 )
-# 在每个AIMessage和ToolMessage前面,加一个换行,方便阅读,会被输出到output.txt中
+
 output_str = (
     str(output)
     .replace("AIMessage", "\nAIMessage")
@@ -81,5 +84,5 @@ with open("output.txt", "w", encoding="utf-8") as f:
 # validate that tool is called and final result contains user name
 if "ToolMessage" in output_str:
     print("tool called")
-if "yuepan" in output['messages'][-1].content:
+if "yuepan" in str(output["messages"][-1].content).lower():
     print("user name is correct")
