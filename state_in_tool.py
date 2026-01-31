@@ -70,8 +70,7 @@ agent = create_agent(
     context_schema=CustomContext,
     checkpointer=checkpointer,
     system_prompt=(
-        # langchain agent的AImessage被设计为结构化输出，所以不会显示思考过程。如果不指定“每一步要解释”，那么,中间过程的AIMessage.content会是空。
-        "You have access to tools.在调用任何工具前，你必须先解释并输出你要做什么"
+        "You have access to tools."
     ),
 )
 
@@ -99,18 +98,16 @@ def run_conversation_loop():
 
         input_messages = {"messages": [HumanMessage(content=user_input)]}
 
-        # 流式调用 agent：updates 只下发本步的增量，无需 last_printed_len
         print("助手: ", end="", flush=True)
 
         try:
-            for chunk in agent.stream(
+            for token, _ in agent.stream(
                 input_messages,
                 context=context,
                 config=config,
-                stream_mode="updates",
+                stream_mode="messages",
             ):
-                for data in chunk.values():
-                    print(data['messages'][-1].content_blocks)
+                print(token.content_blocks)
             print()
         except Exception as e:
             print(f"\n[错误] {e}", file=sys.stderr)
