@@ -77,6 +77,68 @@ agent = create_agent(
     ),
 )
 
+
+def _get_first_block(token):
+    """安全获取 content_blocks 的第一个块，避免 index out of range。"""
+    blocks = getattr(token, "content_blocks", None) or []
+    return blocks[0] if len(blocks) > 0 else None
+
+
+def _handle_model_text(block):
+    """model 节点：流式输出文本。"""
+    text = block.get("text", "")
+    if text:
+        print(text, end="")
+
+
+def _handle_model_tool_call(block):
+    """model 节点：完整 tool_call，打印函数名与参数后换行。"""
+    name = block.get("name")
+    if name:
+        print(f"Call tool <{name}> with args ")
+    args = block.get("args")
+    if args:
+        print(args, end="")
+
+
+def _handle_model_tool_call_chunk(block):
+    """model 节点：流式 tool_call_chunk，不换行。"""
+    name = block.get("name")
+    if name:
+        print(f"Call function <{name}>", end="")
+    args = block.get("args")
+    if args:
+        print(args, end="")
+
+
+def _handle_tools_text(block):
+    """tools 节点：工具返回文本。"""
+    text = block.get("text", "")
+    if text:
+        print(f" Tool response: {text}")
+
+
+# (node, block_type) -> 处理函数，便于扩展新类型
+_STREAM_HANDLERS = {
+    ("model", "text"): _handle_model_text,
+    ("model", "tool_call"): _handle_model_tool_call,
+    ("model", "tool_call_chunk"): _handle_model_tool_call_chunk,
+    ("tools", "text"): _handle_tools_text,
+}
+
+
+def _handle_stream_token(token, metadata):
+    """处理 agent.stream 的单个 (token, metadata)，按节点与块类型分发。"""
+    node = metadata.get("langgraph_node")
+    block = _get_first_block(token)
+    if block is None:
+        return
+    block_type = block.get("type")
+    handler = _STREAM_HANDLERS.get((node, block_type))
+    if handler:
+        handler(block)
+
+
 def run_conversation_loop():
     """用户循环提问，在同一对话中流式输出。历史由 checkpointer + thread_id 持久化。"""
     context = CustomContext(user_id="user_1")
@@ -110,24 +172,7 @@ def run_conversation_loop():
                 config=config,
                 stream_mode="messages",
             ):
-                print(f"node: {metadata['langgraph_node']}")
-                print(f"content: {token.content_blocks}")
-                print("\n")
-                # if (metadata['langgraph_node'] == 'model'):
-                #     blocks = token.content_blocks
-                #     if blocks and blocks[0].get("type") == "text":    
-                #         text = blocks[0]["text"]    
-                #         print(text)
-                #     elif blocks and blocks[0].get("type") == "tool_call":
-                #         if blocks[0].get("name"):
-                #             print(f"Call function <{blocks[0].get('name')}>")
-                #     if blocks[0].get("args"):
-                #         print(f" with arguments: {blocks[0].get('args')}")
-                # elif (metadata['langgraph_node'] == 'tools'):
-                #     blocks = token.content_blocks
-                #     if blocks and blocks[0].get("type") == "text":    
-                #         text = blocks[0]["text"]    
-                #         print(f"tool call response: {text}")
+                _handle_stream_token(token, metadata)
             print()
         except Exception as e:
             print(f"\n[错误] {e}", file=sys.stderr)
