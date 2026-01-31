@@ -58,8 +58,11 @@ def tell_user_name(runtime: ToolRuntime[CustomContext, CustomState]) -> str | Co
     return f"You are {user_name}!"
 
 
+# 不光要设置agent streaming_mode，也要设置model的 streaming=True
 model = ChatTongyi(
-    model_name="qwen-plus", dashscope_api_key=os.getenv("DASHSCOPE_API_KEY")
+    model_name="qwen-plus",
+    dashscope_api_key=os.getenv("DASHSCOPE_API_KEY"),
+    streaming=True,
 )
 
 checkpointer = InMemorySaver()
@@ -101,13 +104,30 @@ def run_conversation_loop():
         print("助手: ", end="", flush=True)
 
         try:
-            for token, _ in agent.stream(
+            for token, metadata in agent.stream(
                 input_messages,
                 context=context,
                 config=config,
                 stream_mode="messages",
             ):
-                print(token.content_blocks)
+                print(f"node: {metadata['langgraph_node']}")
+                print(f"content: {token.content_blocks}")
+                print("\n")
+                # if (metadata['langgraph_node'] == 'model'):
+                #     blocks = token.content_blocks
+                #     if blocks and blocks[0].get("type") == "text":    
+                #         text = blocks[0]["text"]    
+                #         print(text)
+                #     elif blocks and blocks[0].get("type") == "tool_call":
+                #         if blocks[0].get("name"):
+                #             print(f"Call function <{blocks[0].get('name')}>")
+                #     if blocks[0].get("args"):
+                #         print(f" with arguments: {blocks[0].get('args')}")
+                # elif (metadata['langgraph_node'] == 'tools'):
+                #     blocks = token.content_blocks
+                #     if blocks and blocks[0].get("type") == "text":    
+                #         text = blocks[0]["text"]    
+                #         print(f"tool call response: {text}")
             print()
         except Exception as e:
             print(f"\n[错误] {e}", file=sys.stderr)
